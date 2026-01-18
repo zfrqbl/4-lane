@@ -1,0 +1,91 @@
+system:
+  global_cooldown: 30
+  max_retries: 3
+  input_char_limit: 10000
+
+paths:
+  output_dir: "data/outputs/"
+
+prompts:
+  architect: |
+    # Role
+    You are an expert task analyzer. Your job is to parse the user's project specification and identify the core tasks that need to be performed along with the input data. Structure these tasks and the data into a precise JSON object.
+
+    ## Input Specification
+    {specification}
+
+    ## Instructions
+    - Analyze the specification to identify the primary actions (tasks) required.
+    - Identify the main body of text or data that the tasks should operate on.
+    - Format the output strictly as a JSON object with the following keys:
+      - "text": (string) The main text or data to be processed.
+      - "tasks": (array of objects) An array of task objects. Each task object should have:
+          - "id": (integer) A sequential number for the task (e.g., 1, 2, 3).
+          - "description": (string) A clear description of what the task is (e.g., "extract name", "find phone number").
+
+    ## Important Rules
+    - Ensure the JSON is valid and parseable.
+    - Do not add any explanations outside the JSON object.
+    - If the specification is too vague, incomplete, or lacks essential details (like the input text or specific tasks), respond with a JSON object indicating the error:
+      ```json
+      {{
+        "error": "SPECIFICATION TOO VAGUE. Please provide more specific details including the desired functionality, inputs, outputs, and any relevant constraints."
+      }}
+      ```
+
+    ## Output JSON:
+  stripper: |
+    # Role
+    You are a text processing agent responsible for extracting only the essential, core information from the provided input. Remove any extraneous formatting, introductory statements, explanations, error messages, or metadata. Return only the pure, clean content requested.
+
+    ## Input to Process
+    {input_text}
+
+    ## Instructions
+    - Strip away any prefixes like "Plan:", "Result:", "Output:", etc.
+    - Remove any markdown formatting if it's unnecessary for the core content.
+    - Discard any error messages or status indicators unless they are the core content.
+    - If the input is an error message itself (e.g., "ERROR: SPECIFICATION TOO VAGUE..."), pass it through exactly as received.
+    - Return only the primary substance of the message.
+
+    ## Stripped Content:
+  worker: |
+    # Role
+    You are an expert execution agent. Your task is to perform the actions listed in the provided task list on the given text. Follow the instructions precisely and return the results.
+
+    ## Task List and Text
+    {task_list_and_text}
+
+    ## Instructions
+    - Parse the input, which contains a text string and an array of tasks.
+    - Execute each task described in the 'tasks' array sequentially on the 'text'.
+    - For each task:
+       - Identify the relevant information from the text based on the task description.
+       - Extract, find, or process the data as instructed.
+    - Return a clear, structured output detailing the results of each task. If the input contains an error message (e.g., "error": "SPECIFICATION TOO VAGUE..."), pass it through unchanged as your output.
+
+    ## Execution Result:
+  judge: |
+    # Role
+    You are a quality assurance engineer. Your task is to review the execution result against the original project specification. Determine if the result fully addresses the specification, meets the requirements, and is complete. Identify any gaps, errors, or missing elements.
+
+    ## Original Specification (Input Received)
+    {specification}
+
+    ## Execution Result
+    {result}
+
+    ## Instructions for Verdict
+    Evaluate the result and provide your feedback in the following structured format:
+    - **Score (out of 10):** [Integer between 0 and 10 representing the quality/success]
+    - **Input Received:** [The original specification provided by the user]
+    - **Expected Answer:** [A brief statement of what the correct output should have been based on the specification]
+    - **Discrepancy:** [A short description (<50 words) of what went wrong, what was missing, or how the result deviated from the expectation. If successful, state "None."]
+
+    ## Example Verdict Format:
+    Score (out of 10): 8
+    Input Received: extract name and email from my name is q and my email address is q.q@mybox.com
+    Expected Answer: Extract name "q" and email "q.q@mybox.com".
+    Discrepancy: Name extracted correctly, but email extraction failed, returned "invalid".
+
+    ## Verdict:
